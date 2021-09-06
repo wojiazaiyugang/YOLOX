@@ -11,13 +11,13 @@ class Exp(MyExp):
         self.exp_name = os.path.split(os.path.realpath(__file__))[1].split(".")[0]
 
         # Define yourself dataset path
-        self.data_dir = "/mnt/nfs-storage/yujiannan/data/bas_data/train_data" or "datasets/basketball"
-        self.train_ann = "train_21.8.16_train.json" or "train_21.7.19.json"
-        self.val_ann = "val_21.8.16.json" or "train_21.7.19_val.json"
+        self.data_dir = "/home/senseport0/data/train_data"
+        self.train_ann = "train_21.7.19.json"
+        self.val_ann = "train_21.7.19.json"
 
         self.num_classes = 1
 
         self.max_epoch = 10
-        self.data_num_workers = 4
+        self.data_num_workers = 1
         self.eval_interval = 1
 
