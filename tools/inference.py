@@ -86,7 +86,7 @@ def decode_outputs(outputs):
     """
     grids = []
     strides = []
-    dtype = torch.cuda.FloatTensor
+    dtype = torch.FloatTensor
     for (hsize, wsize), stride in zip([torch.Size([80, 80]), torch.Size([40, 40]), torch.Size([20, 20])], [8, 16, 32]):
         yv, xv = torch.meshgrid([torch.arange(hsize), torch.arange(wsize)])
         grid = torch.stack((xv, yv), 2).view(1, -1, 2)
@@ -144,26 +144,34 @@ def post_processing(prediction, num_classes, conf_thre=0.7, nms_thre=0.45, class
 
 if __name__ == '__main__':
     engine_file_path = "/home/senseport0/Workspace/YOLOX/YOLOX_outputs/yolox_l_basketball_detection/model_trt.engine"
-    input_image = cv2.imread('/home/senseport0/Workspace/YOLOX/assets/1808.jpg')
+
     input_size = (640, 640)  # 输入图像尺寸
     with open(engine_file_path, "rb") as f, trt.Runtime(TRT_LOGGER) as runtime, runtime.deserialize_cuda_engine(
             f.read()) as engine, engine.create_execution_context() as context:
         # cfx = cuda.Device(0).make_context()
         inputs, outputs, bindings, stream = allocate_buffers(engine)
-        for i in range(100):
-            s = datetime.datetime.now()
+        for i in range(1):
+            input_image = cv2.imread('/home/senseport0/Workspace/YOLOX/assets/6.jpg')
             image = pre_processing(input_image, input_size)
             np.copyto(inputs[0].host, image.flatten())
-
-            # cfx.push()
             trt_outputs = do_inference(context, bindings=bindings, inputs=inputs, outputs=outputs, stream=stream)
-            # cfx.pop()
-            # trt_outputs = torch.from_numpy(trt_outputs[0]).resize(1, 8400, 6).cuda()
+            trt_outputs = torch.from_numpy(trt_outputs[0])
+            trt_outputs.resize_(1, 8400, 6)
             trt_outputs = decode_outputs(trt_outputs)
-            # trt_outputs = post_processing(prediction=trt_outputs,
-            #                               num_classes=1,
-            #                               conf_thre=0.3,
-            #                               nms_thre=0.3,
-            #                               class_agnostic=True)
-            # print(trt_outputs[0].cpu().numpy())
-            print((datetime.datetime.now() - s).total_seconds() * 1000)
+            trt_outputs = post_processing(prediction=trt_outputs,
+                                          num_classes=1,
+                                          conf_thre=0.3,
+                                          nms_thre=0.3,
+                                          class_agnostic=True)
+            if trt_outputs[0] is None:
+                continue
+            results = trt_outputs[0].numpy()
+            # input_image = cv2.resize(input_image, input_size)
+            ratio = min(input_size[0] / input_image.shape[0], input_size[1] / input_image.shape[1])
+            for result in results:
+                bbox = list(map(int, result[:4] / ratio))
+                score = float(result[4] * result[5])
+                cv2.rectangle(input_image, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (0, 0, 255), 2)
+                cv2.putText(input_image, str(score), (bbox[0], bbox[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                print(bbox, result)
+            cv2.imwrite("/home/senseport0/Workspace/YOLOX/assets/output.jpg", input_image)
