@@ -1,3 +1,5 @@
+import os
+
 import cv2
 import torch
 import torchvision
@@ -21,11 +23,48 @@ class HostDeviceMem(object):
 
 class BasketballDetector:
 
-    def __init__(self, engine_path: str):
+    def __init__(self, onnx_file: str, engine_file: str):
         self.input_size = (640, 640)  # 输入图像尺寸
-        self.engine = trt.Runtime(trt.Logger()).deserialize_cuda_engine(open(engine_path, "rb").read())
+        self.trt_logger = trt.Logger()
+        self.engine = self.get_engine(onnx_file, engine_file)
         self.context = self.engine.create_execution_context()
         self.inputs, self.outputs, self.bindings, self.stream = self.allocate_buffers()
+
+    def get_engine(self, onnx_file: str, engine_file: str):
+        """
+        获取engine
+        :param onnx_file:
+        :param engine_file:
+        :return:
+        """
+        if os.path.exists(engine_file):
+            print(f"读取trt engine {engine_file}")
+            return trt.Runtime(self.trt_logger).deserialize_cuda_engine(open(engine_file, "rb").read())
+        else:
+            print(f"trt engine {engine_file}不存在，开始在线转换 {onnx_file}")
+            explicit_batch = 1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
+            with trt.Builder(self.trt_logger) as builder, \
+                    builder.create_network(explicit_batch) as network, \
+                    trt.OnnxParser(network, self.trt_logger) as parser:
+
+                builder.max_workspace_size = 1 << 30
+                builder.max_batch_size = 1
+                if builder.platform_has_fast_fp16:
+                    builder.fp16_mode = True
+                with open(onnx_file, 'rb') as model_file:
+                    if not parser.parse(model_file.read()):
+                        print('Failed to parse the ONNX file')
+                        for err in range(parser.num_errors):
+                            print(parser.get_error(err))
+                        return None
+                network.get_input(0).shape = [1, 3, *self.input_size]
+                engine = builder.build_cuda_engine(network)
+                if engine is None:
+                    print('Failed to build engine')
+                    return None
+                with open(engine_file, 'wb') as engine_file:
+                    engine_file.write(engine.serialize())
+                return engine
 
     def allocate_buffers(self):
         inputs = []
@@ -68,7 +107,8 @@ class BasketballDetector:
         grids = []
         strides = []
         dtype = torch.FloatTensor
-        for (hsize, wsize), stride in zip([torch.Size([80, 80]), torch.Size([40, 40]), torch.Size([20, 20])], [8, 16, 32]):
+        for (hsize, wsize), stride in zip([torch.Size([80, 80]), torch.Size([40, 40]), torch.Size([20, 20])],
+                                          [8, 16, 32]):
             yv, xv = torch.meshgrid([torch.arange(hsize), torch.arange(wsize)])
             grid = torch.stack((xv, yv), 2).view(1, -1, 2)
             grids.append(grid)
@@ -166,22 +206,13 @@ class BasketballDetector:
         # cv2.imwrite("/home/senseport0/Workspace/YOLOX/assets/output.jpg", image)
 
 
-def f():
-    basketball_detector = BasketballDetector("/home/senseport0/Workspace/YOLOX/YOLOX_outputs/yolox_l_basketball_detection/model_trt.engine")
-    input_image = cv2.imread('/home/senseport0/Workspace/YOLOX/assets/6.jpg')
-    for i in range(100):
-        # s = datetime.datetime.now()
-        print(basketball_detector.infer(input_image))
-        # print((datetime.datetime.now() - s).total_seconds() * 1000)
-
-
 if __name__ == '__main__':
-    import multiprocessing
+    import datetime
 
-    multiprocessing.set_start_method("spawn")
-    t1 = multiprocessing.Process(target=f)
-    t2 = multiprocessing.Process(target=f)
-    t1.start()
-    t2.start()
-    t1.join()
-    t2.join()
+    image = cv2.imread("assets/6.jpg")
+    basketball_detector = BasketballDetector("checkpoints/yolox_l_best_ckpt.onnx",
+                                             "checkpoints/yolox_l_best_ckpt_fp16.trt")
+    for i in range(100):
+        s = datetime.datetime.now()
+        print(basketball_detector.infer(image))
+        print((datetime.datetime.now() - s).total_seconds() * 1000)
