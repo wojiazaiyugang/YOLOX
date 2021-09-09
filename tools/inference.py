@@ -1,4 +1,6 @@
 import os
+from typing import List, Tuple
+from dataclasses import dataclass
 
 import cv2
 import torch
@@ -21,10 +23,20 @@ class HostDeviceMem(object):
         return self.__str__()
 
 
+@dataclass
+class DetectResult:
+    """
+    检测结果
+    """
+    bbox: Tuple[int, int, int, int]  # bbox框 左上角xy和右下角xy
+    score: float  # 分数
+
+
 class BasketballDetector:
 
     def __init__(self, onnx_file: str, engine_file: str):
         self.input_size = (640, 640)  # 输入图像尺寸
+        self.infer_image_shape = ()  # 当前推理的图像尺寸
         self.trt_logger = trt.Logger()
         self.engine = self.get_engine(onnx_file, engine_file)
         self.context = self.engine.create_execution_context()
@@ -123,18 +135,17 @@ class BasketballDetector:
     def pre_processing(self, img: np.ndarray):
         """
         图像预处理
-        :param input_size:
         :param img:
         :return:
         """
         padded_img = np.ones((self.input_size[0], self.input_size[1], 3), dtype=np.uint8) * 114
-        r = min(self.input_size[0] / img.shape[0], self.input_size[1] / img.shape[1])
+        r = min(self.input_size[0] / self.infer_image_shape[0], self.input_size[1] / self.infer_image_shape[1])
         resized_img = cv2.resize(
             img,
-            (int(img.shape[1] * r), int(img.shape[0] * r)),
+            (int(self.infer_image_shape[1] * r), int(self.infer_image_shape[0] * r)),
             interpolation=cv2.INTER_LINEAR,
         ).astype(np.uint8)
-        padded_img[: int(img.shape[0] * r), : int(img.shape[1] * r)] = resized_img
+        padded_img[: int(self.infer_image_shape[0] * r), : int(self.infer_image_shape[1] * r)] = resized_img
         padded_img = padded_img.transpose((2, 0, 1))
         padded_img = np.ascontiguousarray(padded_img, dtype=np.float32)
         return padded_img
@@ -180,7 +191,8 @@ class BasketballDetector:
                 output[i] = torch.cat((output[i], detections))
         return output
 
-    def infer(self, image):
+    def infer(self, image) -> List[DetectResult]:
+        self.infer_image_shape = image.shape
         image = self.pre_processing(image)
         np.copyto(self.inputs[0].host, image.flatten())
         trt_outputs = self.do_inference()
@@ -193,26 +205,32 @@ class BasketballDetector:
                                            nms_thre=0.3,
                                            class_agnostic=True)
         if trt_outputs[0] is None:
-            return
+            return []
         results = trt_outputs[0].numpy()
         # input_image = cv2.resize(input_image, input_size)
-        ratio = min(self.input_size[0] / image.shape[0], self.input_size[1] / image.shape[1])
+        ratio = min(self.input_size[0] / self.infer_image_shape[0], self.input_size[1] / self.infer_image_shape[1])
+        detect_results = []
         for result in results:
             bbox = list(map(int, result[:4] / ratio))
             score = float(result[4] * result[5])
-            cv2.rectangle(image, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (0, 0, 255), 2)
-            cv2.putText(image, str(score), (bbox[0], bbox[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-            # print(bbox, result)
-        # cv2.imwrite("/home/senseport0/Workspace/YOLOX/assets/output.jpg", image)
+            detect_results.append(DetectResult(bbox=bbox, score=score))
+        return detect_results
 
 
 if __name__ == '__main__':
     import datetime
 
-    image = cv2.imread("assets/6.jpg")
-    basketball_detector = BasketballDetector("checkpoints/yolox_l_best_ckpt.onnx",
-                                             "checkpoints/yolox_l_best_ckpt_fp16.trt")
-    for i in range(100):
-        s = datetime.datetime.now()
-        print(basketball_detector.infer(image))
-        print((datetime.datetime.now() - s).total_seconds() * 1000)
+    image = cv2.imread("assets/dog.jpg")
+    print(image.shape)
+    basketball_detector = BasketballDetector("checkpoints/yolox_l_basketball_detection.onnx",
+                                             "checkpoints/yolox_l_basketball_detection.trt")
+    print(image.shape)
+    detect_results = basketball_detector.infer(image)
+    print(detect_results)
+    for detect_result in detect_results:
+        cv2.rectangle(image, (detect_result.bbox[0], detect_result.bbox[1]),
+                      (detect_result.bbox[2], detect_result.bbox[3]), (0, 0, 255), 2)
+        cv2.putText(image, str(detect_result.score), (detect_result.bbox[0], detect_result.bbox[1] - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+        # print(bbox, result)
+    cv2.imwrite("assets/output.jpg", image)
