@@ -196,7 +196,11 @@ class BasketballDetector:
         image = self.pre_processing(image)
         np.copyto(self.inputs[0].host, image.flatten())
         trt_outputs = self.do_inference()
-        trt_outputs = torch.from_numpy(trt_outputs[0])
+        #trt_outputs = torch.from_numpy(trt_outputs[0])
+        trt_outputs = np.concatenate(trt_outputs)
+        trt_outputs = torch.from_numpy(trt_outputs)
+        #trt_outputs = trt_outputs - np.array([0.485, 0.456, 0.406]).reshape(3,1,1)
+        #trt_outputs = trt_outputs / np.array([0.229, 0.224, 0.255]).reshape(3,1,1)
         trt_outputs.resize_(1, 8400, 6)
         trt_outputs = self.decode_outputs(trt_outputs)
         trt_outputs = self.post_processing(prediction=trt_outputs,
@@ -222,12 +226,17 @@ if __name__ == '__main__':
 
     image = cv2.imread("assets/dog.jpg")
     print(image.shape)
-    basketball_detector = BasketballDetector("checkpoints/yolox_l_basketball_detection.onnx",
-                                             "checkpoints/yolox_l_basketball_detection.trt")
-    print(image.shape)
-    detect_results = basketball_detector.infer(image)
-    print(detect_results)
+    basketball_detector = BasketballDetector("checkpoints/tmp.onnx",
+                                             "checkpoints/yolox_l_best_ckpt.trt")
+    for i in range(10):
+        s = datetime.datetime.now()
+        print(image.shape)
+        detect_results = basketball_detector.infer(image)
+        print((datetime.datetime.now() - s).total_seconds() * 1000)
     for detect_result in detect_results:
+        if detect_result.score < 2:
+            continue
+        print(detect_result)
         cv2.rectangle(image, (detect_result.bbox[0], detect_result.bbox[1]),
                       (detect_result.bbox[2], detect_result.bbox[3]), (0, 0, 255), 2)
         cv2.putText(image, str(detect_result.score), (detect_result.bbox[0], detect_result.bbox[1] - 10),
