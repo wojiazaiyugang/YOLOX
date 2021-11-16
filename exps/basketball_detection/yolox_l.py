@@ -26,7 +26,9 @@ class Exp(MyExp):
         self.eval_interval = 1
         self.data_num_workers = 4
         self.max_epoch = 300
-        self.dataset_dir = ""
+        self.dataset_dir = ""  # 数据的总文件夹
+        # yolox支持voc格式，但是这里非要传年份2007，然后前面给拼一个VOC，这里叫_basketball_detection，所以最后的文件夹就叫VOC_basketball_detection
+        self.basketball_detection_dir = "_basketball_detection"
 
     def get_data_loader(self, batch_size, is_distributed, no_aug=False, cache_img=False):
         from yolox.data import (
@@ -46,8 +48,8 @@ class Exp(MyExp):
 
         with wait_for_the_master(local_rank):
             dataset = VOCDetection(
-                data_dir=os.path.join(get_yolox_datadir(), "VOCdevkit"),
-                image_sets=[('2007', 'trainval'), ('2012', 'trainval')],
+                data_dir=self.dataset_dir,
+                image_sets=[(self.basketball_detection_dir, 'trainval')],
                 img_size=self.input_size,
                 preproc=TrainTransform(
                     max_labels=50,
@@ -104,8 +106,8 @@ class Exp(MyExp):
         from yolox.data import VOCDetection, ValTransform
 
         valdataset = VOCDetection(
-            data_dir=os.path.join(get_yolox_datadir(), "VOCdevkit"),
-            image_sets=[('2007', 'test')],
+            data_dir=self.dataset_dir,
+            image_sets=[(self.basketball_detection_dir, 'test')],
             img_size=self.test_size,
             preproc=ValTransform(legacy=legacy),
         )
