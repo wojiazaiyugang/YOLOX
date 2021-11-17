@@ -28,7 +28,8 @@ class Exp(MyExp):
         self.max_epoch = 300
         self.dataset_dir = "/mnt/nfs-storage/yujiannan/data"  # 数据的总文件夹
         # yolox支持voc格式，但是这里非要传年份2007，然后前面给拼一个VOC，这里叫_basketball_detection，所以最后的文件夹就叫VOC_basketball_detection
-        self.basketball_detection_dir = "_basketball_detection"
+        # 代码中默认这个玩意是个年份，不能用_basketball_detection了，改成2021了
+        self.basketball_detection_dir = "2021"
 
     def get_data_loader(self, batch_size, is_distributed, no_aug=False, cache_img=False):
         from yolox.data import (
