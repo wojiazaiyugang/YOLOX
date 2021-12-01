@@ -134,7 +134,7 @@ When using -f, the above commands are equivalent to:
 ```shell
 python tools/train.py -f exps/default/yolox_s.py -d 8 -b 64 --fp16 -o [--cache]
                          exps/default/yolox_m.py
-                         exps/default/yolox_l.py
+                         exps/default/basketball_yolox_l.py
                          exps/default/yolox_x.py
 ```
   
