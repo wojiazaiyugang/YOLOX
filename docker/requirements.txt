@@ -11,3 +11,7 @@ ninja
 tabulate
 tensorboard
 onnxruntime
+scikit-build
+onnx
+onnx-simplifier
+cython
