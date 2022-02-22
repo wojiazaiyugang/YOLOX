@@ -13,6 +13,7 @@ class Exp(MyExp):
         super(Exp, self).__init__()
         self.num_classes = 2
         self.exp_name = "boxing_glove"
+        self.dataset_dir = "/mnt/nfs-storage/yujiannan/data"  # 数据的总文件夹
         self.basketball_detection_dir = "2022"
 
         self.depth = 0.33
