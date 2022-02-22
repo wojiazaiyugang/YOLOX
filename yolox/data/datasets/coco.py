@@ -13,6 +13,25 @@ from ..dataloading import get_yolox_datadir
 from .datasets_wrapper import Dataset
 
 
+def remove_useless_info(coco):
+    """
+    Remove useless info in coco dataset. COCO object is modified inplace.
+    This function is mainly used for saving memory (save about 30% mem).
+    """
+    if isinstance(coco, COCO):
+        dataset = coco.dataset
+        dataset.pop("info", None)
+        dataset.pop("licenses", None)
+        for img in dataset["images"]:
+            img.pop("license", None)
+            img.pop("coco_url", None)
+            img.pop("date_captured", None)
+            img.pop("flickr_url", None)
+        if "annotations" in coco.dataset:
+            for anno in coco.dataset["annotations"]:
+                anno.pop("segmentation", None)
+
+
 class COCODataset(Dataset):
     """
     COCO dataset class.
@@ -43,6 +62,7 @@ class COCODataset(Dataset):
         self.json_file = json_file
 
         self.coco = COCO(os.path.join(self.data_dir, "annotations", self.json_file))
+        remove_useless_info(self.coco)
         self.ids = self.coco.getImgIds()
         self.class_ids = sorted(self.coco.getCatIds())
         cats = self.coco.loadCats(self.coco.getCatIds())
@@ -74,7 +94,7 @@ class COCODataset(Dataset):
         )
         max_h = self.img_size[0]
         max_w = self.img_size[1]
-        cache_file = self.data_dir + "/img_resized_cache_" + self.name + ".array"
+        cache_file = os.path.join(self.data_dir, f"img_resized_cache_{self.name}.array")
         if not os.path.exists(cache_file):
             logger.info(
                 "Caching images for the first time. This might take about 20 minutes for COCO"
