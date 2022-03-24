@@ -1,6 +1,6 @@
 import os
 
-from exps.basketball.basketball_yolox_l import Exp as MyExp
+from exps.basketball.yolox_l import Exp as MyExp
 
 
 class Exp(MyExp):
