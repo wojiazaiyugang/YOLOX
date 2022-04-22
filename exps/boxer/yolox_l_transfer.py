@@ -5,7 +5,7 @@ class Exp(MyExp):
     def __init__(self):
         super().__init__()
         self.num_classes = 2
-        self.exp_name = "human_transfer"
+        self.exp_name = "boxer_detection_transfer"
         self.voc_dir_suffix = "2023"
 
     def get_model(self):
