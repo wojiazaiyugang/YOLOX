@@ -1,5 +1,3 @@
-import os
-
 from exps.basketball.yolox_l import Exp as MyExp
 
 
@@ -8,4 +6,4 @@ class Exp(MyExp):
         super().__init__()
         self.num_classes = 2
         self.exp_name = "boxing_glove"
-        self.basketball_detection_dir = "2022"
+        self.voc_dir_suffix = "2022"

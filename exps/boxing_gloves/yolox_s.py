@@ -14,7 +14,7 @@ class Exp(MyExp):
         self.num_classes = 2
         self.exp_name = "boxing_glove"
         self.dataset_dir = "/mnt/nfs-storage/yujiannan/data"  # 数据的总文件夹
-        self.basketball_detection_dir = "2022"
+        self.voc_dir_suffix = "2022"
 
         self.depth = 0.33
         self.width = 0.50
@@ -38,7 +38,7 @@ class Exp(MyExp):
         with wait_for_the_master(local_rank):
             dataset = VOCDetection(
                 data_dir=self.dataset_dir,
-                image_sets=[(self.basketball_detection_dir, 'trainval')],
+                image_sets=[(self.voc_dir_suffix, 'trainval')],
                 img_size=self.input_size,
                 preproc=TrainTransform(
                     max_labels=50,
@@ -96,7 +96,7 @@ class Exp(MyExp):
 
         valdataset = VOCDetection(
             data_dir=self.dataset_dir,
-            image_sets=[(self.basketball_detection_dir, 'test')],
+            image_sets=[(self.voc_dir_suffix, 'test')],
             img_size=self.test_size,
             preproc=ValTransform(legacy=legacy),
         )

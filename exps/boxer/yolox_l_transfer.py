@@ -6,7 +6,7 @@ class Exp(MyExp):
         super().__init__()
         self.num_classes = 1
         self.exp_name = "human_transfer"
-        self.basketball_detection_dir = "2023"
+        self.voc_dir_suffix = "2023"
 
     def get_model(self):
         from yolox.utils import freeze_module
